@@ -1,0 +1,21 @@
+date,product_id,product_name,category,region,quantity,unit_price,sales
+2023-01-05,P001,Laptop,Electronics,North,2,1200.00,2400.00
+2023-01-10,P002,Smartphone,Electronics,South,5,800.00,4000.00
+2023-01-15,P003,Headphones,Electronics,East,10,100.00,1000.00
+2023-01-20,P004,Keyboard,Accessories,West,7,50.00,350.00
+2023-01-25,P005,Mouse,Accessories,North,12,30.00,360.00
+2023-02-01,P006,Monitor,Electronics,South,3,300.00,900.00
+2023-02-05,P001,Laptop,Electronics,East,1,1200.00,1200.00
+2023-02-10,P002,Smartphone,Electronics,West,6,800.00,4800.00
+2023-02-15,P007,Printer,Electronics,North,2,250.00,500.00
+2023-02-20,P008,Desk Chair,Furniture,South,4,150.00,600.00
+2023-03-01,P009,Desk,Furniture,East,2,200.00,400.00
+2023-03-05,P010,Bookshelf,Furniture,West,1,120.00,120.00
+2023-03-10,P003,Headphones,Electronics,North,8,100.00,800.00
+2023-03-15,P004,Keyboard,Accessories,South,5,50.00,250.00
+2023-03-20,P005,Mouse,Accessories,East,10,30.00,300.00
+2023-04-01,P001,Laptop,Electronics,West,3,1200.00,3600.00
+2023-04-05,P002,Smartphone,Electronics,North,4,800.00,3200.00
+2023-04-10,P006,Monitor,Electronics,South,2,300.00,600.00
+2023-04-15,P008,Desk Chair,Furniture,East,3,150.00,450.00
+2023-04-20,P009,Desk,Furniture,West,1,200.00,200.00 
