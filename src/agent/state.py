@@ -22,3 +22,5 @@ class State:
     generated_code: Optional[str] = None  # The generated Python code
     csv_metadata: Dict = field(default_factory=dict)  # Metadata about the CSV (columns, types, etc.)
     error_message: Optional[str] = None  # Any error messages
+    execution_output: Optional[str] = None  # Output from executing the code
+    execution_successful: bool = False  # Whether the code execution was successful

@@ -7,8 +7,12 @@ the user's question by analyzing the CSV data.
 import os
 import pandas as pd
 import re
+import io
+import sys
 from typing import Any, Dict, Tuple, Optional, Callable
 from pathlib import Path
+import matplotlib.pyplot as plt
+from contextlib import redirect_stdout, redirect_stderr
 
 from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_core.output_parsers import StrOutputParser
@@ -102,6 +106,9 @@ def clean_code(code: str) -> str:
     # Make sure print statements don't contain HTML or markdown
     code = re.sub(r'print\("(.*?)"\)', r'print("\1")', code)
     
+    # Replace plt.show() with code to save the figure
+    code = code.replace("plt.show()", "# plt.show() - Figures will be saved instead")
+    
     return code
 
 
@@ -151,6 +158,7 @@ IMPORTANT GUIDELINES:
 - Do NOT wrap your code in markdown code blocks (no ```python or ``` tags)
 - Double-check your code against the available column names in the CSV file
 - Make sure to use the correct column names in the code
+- For visualizations, it's better to use plt.savefig() instead of plt.show() as this will be run in a non-interactive environment
 
 EXAMPLE SOLUTION:
 For the question "What are the top 3 products by total sales?" with a sales dataset containing 'product_name' and 'sales' columns:
@@ -180,7 +188,10 @@ plt.xlabel('Product')
 plt.ylabel('Total Sales ($)')
 plt.xticks(rotation=45)
 plt.tight_layout()
-plt.show()
+# Instead of plt.show() which doesn't work in non-interactive environments
+# Save the figure to a file instead
+plt.savefig('sales_chart.png')
+print("Visualization saved to 'sales_chart.png'")
 ```
 
 DO NOT include any commentary, explanations, or markdown. ONLY output valid Python code."""
@@ -223,6 +234,94 @@ DO NOT include any commentary, explanations, or markdown. ONLY output valid Pyth
         return {"error_message": f"Error generating code: {str(e)}"}
 
 
+def execute_code(state: State, config: RunnableConfig) -> Dict[str, Any]:
+    """Execute the generated Python code and capture the output."""
+    # Skip if there's an error or no code to execute
+    if state.error_message or not state.generated_code:
+        return {}
+    
+    # Prepare to capture output
+    stdout_capture = io.StringIO()
+    stderr_capture = io.StringIO()
+    
+    # Create a namespace for execution
+    namespace = {
+        'pd': pd, 
+        'plt': plt, 
+        'csv_path': state.csv_path,
+        'np': __import__('numpy')
+    }
+    
+    # Add additional common imports that might be used
+    try:
+        namespace['sns'] = __import__('seaborn')
+    except ImportError:
+        pass  # seaborn not available
+        
+    try:
+        # Configure matplotlib to use Agg backend (non-interactive)
+        plt.switch_backend('Agg')
+        
+        # Clear any existing figures
+        plt.close('all')
+        
+        # Temporarily redirect stdout and stderr
+        with redirect_stdout(stdout_capture), redirect_stderr(stderr_capture):
+            # Execute the code
+            exec(state.generated_code, namespace)
+            
+            # Save any generated figures
+            figure_paths = []
+            for i, fig in enumerate(map(plt.figure, plt.get_fignums())):
+                figure_path = f"figure_{i+1}.png"
+                fig.savefig(figure_path)
+                figure_paths.append(figure_path)
+            
+            # Close all figures to free memory
+            plt.close('all')
+        
+        # Get the captured output
+        stdout_output = stdout_capture.getvalue()
+        stderr_output = stderr_capture.getvalue()
+        
+        # Filter out matplotlib warnings related to non-interactive backend
+        filtered_stderr = []
+        for line in stderr_output.splitlines():
+            if "is non-interactive, and thus cannot be shown" not in line:
+                filtered_stderr.append(line)
+        
+        stderr_output = "\n".join(filtered_stderr)
+        
+        # Handle errors in execution
+        if stderr_output.strip():
+            return {
+                "execution_output": f"Code execution encountered errors:\n{stderr_output}",
+                "execution_successful": False
+            }
+        
+        # Format the result nicely
+        result = "=== EXECUTION RESULTS ===\n\n"
+        if stdout_output.strip():
+            result += stdout_output.strip() + "\n\n"
+        
+        # Mention any saved figures
+        if figure_paths:
+            result += f"Visualization(s) saved to:\n"
+            for path in figure_paths:
+                result += f"- {path}\n"
+        
+        return {
+            "execution_output": result,
+            "execution_successful": True
+        }
+    
+    except Exception as e:
+        return {
+            "execution_output": f"Error executing code: {str(e)}",
+            "execution_successful": False
+        }
+
+
 # Define the workflow
 workflow = StateGraph(State, config_schema=Configuration)
 
@@ -230,12 +329,14 @@ workflow = StateGraph(State, config_schema=Configuration)
 workflow.add_node("validate_input", validate_input)
 workflow.add_node("load_csv_data", load_csv_data)
 workflow.add_node("generate_code", generate_code)
+workflow.add_node("execute_code", execute_code)
 
 # Define a simple linear flow
 workflow.add_edge("__start__", "validate_input")
 workflow.add_edge("validate_input", "load_csv_data")
 workflow.add_edge("load_csv_data", "generate_code")
-workflow.add_edge("generate_code", END)
+workflow.add_edge("generate_code", "execute_code")
+workflow.add_edge("execute_code", END)
 
 # Compile the workflow
 graph = workflow.compile()

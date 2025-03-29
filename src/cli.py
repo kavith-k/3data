@@ -41,6 +41,10 @@ def main():
         "--preview-rows", "-p", type=int, default=5,
         help="Number of rows to include in the preview"
     )
+    parser.add_argument(
+        "--show-code", "-s", action="store_true",
+        help="Show the generated Python code in the output"
+    )
     
     args = parser.parse_args()
     
@@ -73,41 +77,42 @@ def main():
     # Run the graph
     print(f"Processing CSV file: {csv_path}")
     print(f"Question: {user_input}")
-    print("Generating code...\n")
+    print("Analyzing data...\n")
     
     result = graph.invoke(initial_state, config)
     
     # Display result - result is now an AddableValuesDict not a State object
     error_message = result.get("error_message")
     generated_code = result.get("generated_code")
+    execution_output = result.get("execution_output")
+    execution_successful = result.get("execution_successful", False)
     
     if error_message:
         print(f"Error: {error_message}")
-    elif generated_code:
-        print("Generated Python Code:")
-        print("-" * 80)
-        print(generated_code)
-        print("-" * 80)
-        
-        # Ask if user wants to save code to file
-        save = input("Do you want to save this code to a file? (y/n): ")
-        if save.lower() == 'y':
-            filename = input("Enter filename (default: analysis.py): ") or "analysis.py"
-            with open(filename, 'w') as f:
-                f.write(generated_code)
-            print(f"Code saved to {filename}")
-            
-            # Ask if user wants to run the code
-            run_code = input("Do you want to run the code? (y/n): ")
-            if run_code.lower() == 'y':
-                print("\nRunning code...")
-                try:
-                    exec(generated_code)
-                    print("\nCode execution completed.")
-                except Exception as e:
-                    print(f"\nError executing code: {str(e)}")
-    else:
+    elif not generated_code:
         print("No code was generated.")
+    else:
+        # Show code if requested
+        if args.show_code:
+            print("\nGenerated Python Code:")
+            print("-" * 80)
+            print(generated_code)
+            print("-" * 80)
+        
+        # Show execution results
+        if execution_successful:
+            print("\n" + execution_output)
+        else:
+            print("\nExecution failed:")
+            print(execution_output)
+            
+            # Offer to save the code for debugging
+            save = input("\nDo you want to save the code for debugging? (y/n): ")
+            if save.lower() == 'y':
+                filename = input("Enter filename (default: debug_code.py): ") or "debug_code.py"
+                with open(filename, 'w') as f:
+                    f.write(generated_code)
+                print(f"Code saved to {filename}")
 
 
 if __name__ == "__main__":
